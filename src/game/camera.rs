@@ -1,6 +1,7 @@
 use super::OnGameScreen;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
+use bevy_mod_picking::PickingCameraBundle;
 
 //adapted from https://bevy-cheatbook.github.io/cookbook/pan-orbit-camera.html
 
@@ -133,5 +134,6 @@ pub fn spawn_camera(mut commands: Commands) {
             radius,
             ..Default::default()
         })
-        .insert(OnGameScreen);
+        .insert(OnGameScreen)
+        .insert_bundle(PickingCameraBundle::default());
 }

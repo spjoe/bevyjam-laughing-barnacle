@@ -2,10 +2,9 @@ mod camera;
 mod hud;
 
 use super::GameState;
-use crate::game::hud::GameHUDPlugin;
-use crate::game::BarnacleStatus::Attaching;
 use bevy::core::FixedTimestep;
 use bevy::prelude::*;
+use bevy_mod_picking::*;
 use rand::Rng;
 
 const TIMESTEP_2_PER_SECOND: f64 = 30.0 / 60.0;
@@ -19,7 +18,10 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(BarnacleCount { count: 0 });
-        app.add_plugin(GameHUDPlugin);
+        app.add_plugin(hud::GameHUDPlugin);
+        app.add_plugins(DefaultPickingPlugins);
+        app.add_plugin(DebugCursorPickingPlugin); // <- Adds the green debug cursor.
+        app.add_plugin(DebugEventsPickingPlugin);
         app.add_system_set(
             SystemSet::on_enter(GameState::Game)
                 .with_system(setup_game)
@@ -55,7 +57,9 @@ pub struct Barnacle {
 
 impl Barnacle {
     pub fn new() -> Barnacle {
-        Barnacle { status: Attaching }
+        Barnacle {
+            status: BarnacleStatus::Attaching,
+        }
     }
 }
 
@@ -96,7 +100,8 @@ fn setup_game(
             transform: Transform::from_xyz(0.0, 0.5, 0.0).with_rotation(Quat::from_rotation_y(1.)),
             ..Default::default()
         })
-        .insert(OnGameScreen);
+        .insert(OnGameScreen)
+        .insert_bundle(PickableBundle::default());
 }
 
 fn keyboard_input_system(
@@ -135,7 +140,8 @@ fn spawn_barnacle_on_whale(
             ..Default::default()
         })
         .insert(OnGameScreen)
-        .insert(Barnacle::new());
+        .insert(Barnacle::new())
+        .insert_bundle(PickableBundle::default());
 }
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
