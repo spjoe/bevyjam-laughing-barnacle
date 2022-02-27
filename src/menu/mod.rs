@@ -72,6 +72,7 @@ enum MenuButtonAction {
 }
 
 // This system handles changing all buttons color based on mouse interaction
+#[allow(clippy::type_complexity)]
 fn button_system(
     mut interaction_query: Query<
         (&Interaction, &mut UiColor, Option<&SelectedOption>),
@@ -241,6 +242,7 @@ fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
+#[allow(clippy::type_complexity)]
 fn menu_action(
     interaction_query: Query<
         (&Interaction, &MenuButtonAction),

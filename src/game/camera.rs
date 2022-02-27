@@ -80,8 +80,8 @@ pub fn pan_orbit_camera(
             let delta_y = rotation_move.y / window.y * std::f32::consts::PI;
             let yaw = Quat::from_rotation_y(-delta_x);
             let pitch = Quat::from_rotation_x(-delta_y);
-            transform.rotation = yaw * transform.rotation; // rotate around global y axis
-            transform.rotation = transform.rotation * pitch; // rotate around local x axis
+            transform.rotation *= yaw; // rotate around global y axis
+            transform.rotation *= pitch; // rotate around local x axis
         } else if pan.length_squared() > 0.0 {
             any = true;
             // make panning distance independent of resolution and FOV,
@@ -112,9 +112,11 @@ pub fn pan_orbit_camera(
 }
 
 fn get_primary_window_size(windows: &Res<Windows>) -> Vec2 {
-    let window = windows.get_primary().unwrap();
-    let window = Vec2::new(window.width() as f32, window.height() as f32);
-    window
+    let primary_window = windows.get_primary().unwrap();
+    Vec2::new(
+        primary_window.width() as f32,
+        primary_window.height() as f32,
+    )
 }
 
 /// Spawn a camera like this
