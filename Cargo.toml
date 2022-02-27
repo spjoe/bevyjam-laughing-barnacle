@@ -7,3 +7,4 @@ license = "Apache-2.0"
 [dependencies]
 bevy = "0.6"
 bevy_obj = "0.6"
+rand = "0.8"
