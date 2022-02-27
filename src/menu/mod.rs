@@ -1,8 +1,8 @@
 //adapted from menu example https://github.com/bevyengine/bevy/blob/main/examples/game/game_menu.rs
 
-use bevy::prelude::*;
-use bevy::app::AppExit;
 use super::GameState;
+use bevy::app::AppExit;
+use bevy::prelude::*;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
@@ -10,13 +10,11 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_state(MenuState::Disabled)
+        app.add_state(MenuState::Disabled)
             .add_system_set(SystemSet::on_enter(GameState::Menu).with_system(menu_setup))
             .add_system_set(SystemSet::on_enter(MenuState::Main).with_system(main_menu_setup))
             .add_system_set(
-                SystemSet::on_exit(MenuState::Main)
-                    .with_system(despawn_screen::<OnMainMenuScreen>),
+                SystemSet::on_exit(MenuState::Main).with_system(despawn_screen::<OnMainMenuScreen>),
             )
             .add_system_set(
                 SystemSet::on_enter(MenuState::Settings).with_system(settings_menu_setup),
@@ -30,8 +28,9 @@ impl Plugin for MenuPlugin {
                     .with_system(menu_action)
                     .with_system(button_system),
             )
-            .add_system_set(SystemSet::on_exit(GameState::Menu)
-                    .with_system(despawn_screen::<MainMenuState>));
+            .add_system_set(
+                SystemSet::on_exit(GameState::Menu).with_system(despawn_screen::<MainMenuState>),
+            );
     }
 }
 // State used for the current menu screen
@@ -59,7 +58,7 @@ const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
-// Tag component used to mark wich setting is currently selected
+// Tag component used to mark which setting is currently selected
 #[derive(Component)]
 struct SelectedOption;
 
@@ -91,7 +90,8 @@ fn button_system(
 }
 
 fn menu_setup(mut commands: Commands, mut menu_state: ResMut<State<MenuState>>) {
-    commands.spawn_bundle(UiCameraBundle::default())
+    commands
+        .spawn_bundle(UiCameraBundle::default())
         .insert(MainMenuState);
     let _ = menu_state.set(MenuState::Main);
 }

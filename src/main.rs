@@ -1,8 +1,8 @@
 // disable console opening on windows
 #![windows_subsystem = "windows"]
 
-mod menu;
 mod game;
+mod menu;
 
 use bevy::prelude::*;
 use bevy_obj::*;
