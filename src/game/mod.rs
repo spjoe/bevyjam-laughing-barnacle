@@ -1,17 +1,26 @@
 mod camera;
+mod hud;
 
 use super::GameState;
+use crate::game::hud::GameHUDPlugin;
+use crate::game::BarnacleStatus::Attaching;
 use bevy::core::FixedTimestep;
-use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
 use rand::Rng;
 
 const TIMESTEP_2_PER_SECOND: f64 = 30.0 / 60.0;
 
+pub struct BarnacleCount {
+    pub count: u32,
+}
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
+        app.insert_resource(BarnacleCount { count: 0 });
+        app.add_plugin(GameHUDPlugin);
         app.add_system_set(
             SystemSet::on_enter(GameState::Game)
                 .with_system(setup_game)
@@ -20,7 +29,8 @@ impl Plugin for GamePlugin {
         .add_system_set(
             SystemSet::on_update(GameState::Game)
                 .with_system(keyboard_input_system)
-                .with_system(camera::pan_orbit_camera),
+                .with_system(camera::pan_orbit_camera)
+                .with_system(barnacle_count), //.with_system(hit_barnacle_system),
         )
         .add_system_set(
             SystemSet::on_update(GameState::Game)
@@ -38,6 +48,23 @@ struct OnGameScreen;
 
 #[derive(Component)]
 struct GameCamera;
+
+#[derive(Component)]
+pub struct Barnacle {
+    pub status: BarnacleStatus,
+}
+
+impl Barnacle {
+    pub fn new() -> Barnacle {
+        Barnacle { status: Attaching }
+    }
+}
+
+pub enum BarnacleStatus {
+    Attaching,
+    Attached,
+    Gone,
+}
 
 fn setup_game(
     mut commands: Commands,
@@ -71,18 +98,6 @@ fn setup_game(
             ..Default::default()
         })
         .insert(OnGameScreen);
-
-    // barnacle
-    // Load OBJ file
-    let barnacle_mesh_handle = asset_server.load("models/barnacle.obj");
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: barnacle_mesh_handle,
-            material: materials.add(Color::rgb(0.2, 0.2, 0.9).into()),
-            transform: Transform::from_xyz(0.0, 0.5, 2.0).with_scale(Vec3::new(0.2, 0.2, 0.2)),
-            ..Default::default()
-        })
-        .insert(OnGameScreen);
 }
 
 fn keyboard_input_system(
@@ -96,6 +111,13 @@ fn keyboard_input_system(
     if keyboard_input.pressed(KeyCode::Q) {
         let _ = game_state.set(GameState::Menu);
     }
+}
+
+fn hit_barnacle_system(mut mouse_button_input_events: EventReader<MouseButtonInput>) {}
+
+fn barnacle_count(mut barnacle_count: ResMut<BarnacleCount>, query: Query<&Barnacle>) {
+    // todo filter for attached
+    barnacle_count.count = query.iter().count() as u32;
 }
 
 fn spawn_barnacle_on_whale(
@@ -115,7 +137,8 @@ fn spawn_barnacle_on_whale(
             transform: Transform::from_xyz(x, y, z).with_scale(Vec3::new(0.1, 0.1, 0.1)),
             ..Default::default()
         })
-        .insert(OnGameScreen);
+        .insert(OnGameScreen)
+        .insert(Barnacle::new());
 }
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component

@@ -21,6 +21,5 @@ fn main() {
         .add_state(GameState::Menu)
         .add_plugin(menu::MenuPlugin)
         .add_plugin(game::GamePlugin)
-        //.add_startup_system(load)
         .run();
 }
