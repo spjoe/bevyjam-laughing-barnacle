@@ -5,7 +5,6 @@ use super::GameState;
 use crate::game::hud::GameHUDPlugin;
 use crate::game::BarnacleStatus::Attaching;
 use bevy::core::FixedTimestep;
-use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
 use rand::Rng;
 
@@ -62,8 +61,8 @@ impl Barnacle {
 
 pub enum BarnacleStatus {
     Attaching,
-    Attached,
-    Gone,
+    //Attached,
+    //Gone,
 }
 
 fn setup_game(
@@ -112,8 +111,6 @@ fn keyboard_input_system(
         let _ = game_state.set(GameState::Menu);
     }
 }
-
-fn hit_barnacle_system(mut mouse_button_input_events: EventReader<MouseButtonInput>) {}
 
 fn barnacle_count(mut barnacle_count: ResMut<BarnacleCount>, query: Query<&Barnacle>) {
     // todo filter for attached

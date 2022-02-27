@@ -1,7 +1,7 @@
 use super::super::GameState;
 use super::BarnacleCount;
-use bevy::prelude::Val::Percent;
 use bevy::prelude::*;
+use std::f32::consts::PI;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.5);
 
@@ -23,7 +23,8 @@ impl Plugin for GameHUDPlugin {
                 SystemSet::on_update(GameState::Game)
                     .with_system(update_timer_text)
                     .with_system(update_barnacle_count_text)
-                    .with_system(update_timer),
+                    .with_system(update_timer)
+                    .with_system(text_color_system),
             )
             .add_system_set(
                 SystemSet::on_exit(GameState::Game)
@@ -42,8 +43,8 @@ fn update_barnacle_count_text(
     barnacle_count: Res<BarnacleCount>,
     mut query: Query<&mut Text, With<CountRelated>>,
 ) {
-    for (mut text) in query.iter_mut() {
-        text.sections[0].value = format!("{:.2}", barnacle_count.count);
+    for mut text in query.iter_mut() {
+        text.sections[0].value = format!("{}", barnacle_count.count);
     }
 }
 
@@ -109,4 +110,19 @@ fn setup_hud(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(HUDRelated)
         .insert(CountRelated);
+}
+
+fn text_color_system(
+    barnacle_count: Res<BarnacleCount>,
+    mut query: Query<&mut Text, With<HUDRelated>>,
+) {
+    for mut text in query.iter_mut() {
+        let count = barnacle_count.count as f32 * 2. * PI / 100.;
+        text.sections[0].style.color = Color::Rgba {
+            red: (1.25 * count).sin() / 2.0 + 0.5,
+            green: (0.75 * count).sin() / 2.0 + 0.5,
+            blue: (0.50 * count).sin() / 2.0 + 0.5,
+            alpha: 1.0,
+        };
+    }
 }
