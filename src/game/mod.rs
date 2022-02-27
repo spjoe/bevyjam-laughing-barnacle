@@ -17,30 +17,32 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(BarnacleCount { count: 0 });
-        app.add_plugin(hud::GameHUDPlugin);
-        app.add_plugins(DefaultPickingPlugins);
-        app.add_plugin(DebugCursorPickingPlugin); // <- Adds the green debug cursor.
-        app.add_plugin(DebugEventsPickingPlugin);
-        app.add_system_set(
-            SystemSet::on_enter(GameState::Game)
-                .with_system(setup_game)
-                .with_system(camera::spawn_camera),
-        )
-        .add_system_set(
-            SystemSet::on_update(GameState::Game)
-                .with_system(keyboard_input_system)
-                .with_system(camera::pan_orbit_camera)
-                .with_system(barnacle_count), //.with_system(hit_barnacle_system),
-        )
-        .add_system_set(
-            SystemSet::on_update(GameState::Game)
-                .with_run_criteria(FixedTimestep::step(TIMESTEP_2_PER_SECOND))
-                .with_system(spawn_barnacle_on_whale),
-        )
-        .add_system_set(
-            SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<OnGameScreen>),
-        );
+        app.insert_resource(BarnacleCount { count: 0 })
+            .add_plugin(hud::GameHUDPlugin)
+            .add_plugins(DefaultPickingPlugins)
+            .add_plugin(DebugCursorPickingPlugin) // <- Adds the green debug cursor.
+            .add_plugin(DebugEventsPickingPlugin)
+            .add_system_set(
+                SystemSet::on_enter(GameState::Game)
+                    .with_system(setup_game)
+                    .with_system(camera::spawn_camera),
+            )
+            .add_system_set(
+                SystemSet::on_update(GameState::Game)
+                    .with_system(keyboard_input_system)
+                    .with_system(camera::pan_orbit_camera)
+                    .with_system(barnacle_count)
+                    .with_system(print_events), //.with_system(hit_barnacle_system),
+            )
+            .add_system_set(
+                SystemSet::on_update(GameState::Game)
+                    .with_run_criteria(FixedTimestep::step(TIMESTEP_2_PER_SECOND))
+                    .with_system(spawn_barnacle_on_whale),
+            )
+            .add_system_set(
+                SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<OnGameScreen>),
+            )
+            .add_system_to_stage(CoreStage::PostUpdate, print_events);
     }
 }
 
@@ -63,9 +65,10 @@ impl Barnacle {
     }
 }
 
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum BarnacleStatus {
     Attaching,
-    //Attached,
+    Attached,
     //Gone,
 }
 
@@ -118,8 +121,10 @@ fn keyboard_input_system(
 }
 
 fn barnacle_count(mut barnacle_count: ResMut<BarnacleCount>, query: Query<&Barnacle>) {
-    // todo filter for attached
-    barnacle_count.count = query.iter().count() as u32;
+    barnacle_count.count = query
+        .iter()
+        .filter(|b| b.status == BarnacleStatus::Attached)
+        .count() as u32;
 }
 
 fn spawn_barnacle_on_whale(
@@ -142,6 +147,16 @@ fn spawn_barnacle_on_whale(
         .insert(OnGameScreen)
         .insert(Barnacle::new())
         .insert_bundle(PickableBundle::default());
+}
+
+pub fn print_events(mut events: EventReader<PickingEvent>) {
+    for event in events.iter() {
+        match event {
+            PickingEvent::Selection(e) => info!("A selection event happened: {:?}", e),
+            PickingEvent::Hover(e) => info!("Egads! A hover event!? {:?}", e),
+            PickingEvent::Clicked(e) => info!("Gee Willikers, it's a click! {:?}", e),
+        }
+    }
 }
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
