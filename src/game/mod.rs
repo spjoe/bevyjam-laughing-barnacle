@@ -6,6 +6,13 @@ use bevy::prelude::*;
 use bevy_mod_picking::*;
 use rand::Rng;
 
+#[derive(Default, Clone)]
+pub struct BarnacleAttachingMaterials {
+    pub hell1: Handle<StandardMaterial>,
+    pub hell2: Handle<StandardMaterial>,
+    pub hell3: Handle<StandardMaterial>,
+}
+
 pub struct BarnacleCount {
     pub count: u32,
 }
@@ -15,9 +22,17 @@ pub struct GamePlugin;
 #[derive(Component)]
 pub struct BarnacleSpawnTimer(Timer);
 
+#[derive(Component)]
+pub struct BarnacleAttachingTimer(Timer);
+
+#[derive(Component)]
+pub struct BarnacleAttachedTimer(Timer);
+
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(BarnacleCount { count: 0 })
+            .insert_resource(BarnacleAttachingMaterials::default())
+            .add_startup_system(setup_attaching_material)
             //.add_startup_system(camera::spawn_camera)
             .add_plugin(hud::GameHUDPlugin)
             .add_plugins(DefaultPickingPlugins)
@@ -34,8 +49,12 @@ impl Plugin for GamePlugin {
                     .with_system(camera::pan_orbit_camera)
                     .with_system(barnacle_count)
                     .with_system(print_events) //.with_system(hit_barnacle_system),
-                    .with_system(update_timer) //.with_system(hit_barnacle_system),
-                    .with_system(spawn_barnacle_on_whale), //.with_system(hit_barnacle_system),
+                    .with_system(update_spawn_timer) //.with_system(hit_barnacle_system),
+                    .with_system(update_attached_timers) //.with_system(hit_barnacle_system),
+                    .with_system(update_attaching_timers) //.with_system(hit_barnacle_system),
+                    .with_system(spawn_barnacle_on_whale) //.with_system(hit_barnacle_system),
+                    .with_system(update_attached_state) //.with_system(hit_barnacle_system),
+                    .with_system(material_attaching_state), //.with_system(hit_barnacle_system),
             )
             .add_system_set(
                 SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<OnGameScreen>),
@@ -67,7 +86,16 @@ impl Barnacle {
 pub enum BarnacleStatus {
     Attaching,
     Attached,
-    //Gone,
+    Gone,
+}
+
+fn setup_attaching_material(
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut attaching_materials: ResMut<BarnacleAttachingMaterials>,
+) {
+    attaching_materials.hell1 = materials.add(Color::rgb(0.25, 0.25, 0.25).into());
+    attaching_materials.hell2 = materials.add(Color::rgb(0.5, 0.5, 0.5).into());
+    attaching_materials.hell3 = materials.add(Color::rgb(0.75, 0.75, 0.75).into());
 }
 
 fn setup_game(
@@ -98,13 +126,13 @@ fn setup_game(
                 base_color_texture: Some(asset_server.load("models/whale.png")),
                 ..Default::default()
             }),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0).with_rotation(Quat::from_rotation_y(1.)),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..Default::default()
         })
-        .insert(OnGameScreen)
-        .insert_bundle(PickableBundle::default());
+        .insert(OnGameScreen);
 
-    commands.spawn()
+    commands
+        .spawn()
         .insert(OnGameScreen)
         .insert(BarnacleSpawnTimer(Timer::from_seconds(1.0, true)));
 }
@@ -151,22 +179,64 @@ fn spawn_barnacle_on_whale(
                 })
                 .insert(OnGameScreen)
                 .insert(Barnacle::new())
+                .insert(BarnacleAttachedTimer(Timer::from_seconds(5.0, false)))
+                .insert(BarnacleAttachingTimer(Timer::from_seconds(0.1, true)))
                 .insert_bundle(PickableBundle::default());
-        }
-    };
-}
-
-pub fn print_events(mut events: EventReader<PickingEvent>) {
-    for event in events.iter() {
-        match event {
-            PickingEvent::Selection(e) => info!("A selection event happened: {:?}", e),
-            PickingEvent::Hover(e) => info!("Egads! A hover event!? {:?}", e),
-            PickingEvent::Clicked(e) => info!("Gee Willikers, it's a click! {:?}", e),
         }
     }
 }
 
-fn update_timer(time: Res<Time>, mut query: Query<&mut BarnacleSpawnTimer>) {
+fn update_attached_state(mut query: Query<(&mut Barnacle, &BarnacleAttachedTimer)>) {
+    for (mut barnacle, timer) in query.iter_mut() {
+        if timer.0.just_finished() {
+            barnacle.status = BarnacleStatus::Attached;
+        }
+    }
+}
+
+fn material_attaching_state(
+    attaching_materials: ResMut<BarnacleAttachingMaterials>,
+    mut query: Query<(&mut Handle<StandardMaterial>, &BarnacleAttachingTimer)>,
+) {
+    for (mut material_handle, timer) in query.iter_mut() {
+        if timer.0.just_finished() {
+            match timer.0.times_finished() % 3 {
+                0 => *material_handle = attaching_materials.hell1.clone(),
+                1 => *material_handle = attaching_materials.hell2.clone(),
+                2 => *material_handle = attaching_materials.hell3.clone(),
+                _ => *material_handle = attaching_materials.hell1.clone(),
+            };
+        }
+    }
+}
+
+pub fn print_events(mut events: EventReader<PickingEvent>, mut query: Query<&mut Barnacle>) {
+    for event in events.iter() {
+        match event {
+            PickingEvent::Selection(e) => info!("A selection event happened: {:?}", e),
+            PickingEvent::Hover(e) => info!("Egads! A hover event!? {:?}", e),
+            PickingEvent::Clicked(e) => {
+                info!("Gee Willikers, it's a click! {:?}", e);
+                let mut barancle = query.get_mut(*e).unwrap();
+                barancle.status = BarnacleStatus::Gone;
+            }
+        }
+    }
+}
+
+fn update_spawn_timer(time: Res<Time>, mut query: Query<&mut BarnacleSpawnTimer>) {
+    for mut timer in query.iter_mut() {
+        timer.0.tick(time.delta());
+    }
+}
+
+fn update_attaching_timers(time: Res<Time>, mut query: Query<&mut BarnacleAttachingTimer>) {
+    for mut timer in query.iter_mut() {
+        timer.0.tick(time.delta());
+    }
+}
+
+fn update_attached_timers(time: Res<Time>, mut query: Query<&mut BarnacleAttachedTimer>) {
     for mut timer in query.iter_mut() {
         timer.0.tick(time.delta());
     }
