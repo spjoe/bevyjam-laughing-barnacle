@@ -2,12 +2,9 @@ mod camera;
 mod hud;
 
 use super::GameState;
-use bevy::core::FixedTimestep;
 use bevy::prelude::*;
 use bevy_mod_picking::*;
 use rand::Rng;
-
-const TIMESTEP_2_PER_SECOND: f64 = 30.0 / 60.0;
 
 pub struct BarnacleCount {
     pub count: u32,
@@ -15,9 +12,13 @@ pub struct BarnacleCount {
 
 pub struct GamePlugin;
 
+#[derive(Component)]
+pub struct BarnacleSpawnTimer(Timer);
+
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(BarnacleCount { count: 0 })
+            //.add_startup_system(camera::spawn_camera)
             .add_plugin(hud::GameHUDPlugin)
             .add_plugins(DefaultPickingPlugins)
             .add_plugin(DebugCursorPickingPlugin) // <- Adds the green debug cursor.
@@ -32,12 +33,9 @@ impl Plugin for GamePlugin {
                     .with_system(keyboard_input_system)
                     .with_system(camera::pan_orbit_camera)
                     .with_system(barnacle_count)
-                    .with_system(print_events), //.with_system(hit_barnacle_system),
-            )
-            .add_system_set(
-                SystemSet::on_update(GameState::Game)
-                    .with_run_criteria(FixedTimestep::step(TIMESTEP_2_PER_SECOND))
-                    .with_system(spawn_barnacle_on_whale),
+                    .with_system(print_events) //.with_system(hit_barnacle_system),
+                    .with_system(update_timer) //.with_system(hit_barnacle_system),
+                    .with_system(spawn_barnacle_on_whale), //.with_system(hit_barnacle_system),
             )
             .add_system_set(
                 SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<OnGameScreen>),
@@ -105,6 +103,10 @@ fn setup_game(
         })
         .insert(OnGameScreen)
         .insert_bundle(PickableBundle::default());
+
+    commands.spawn()
+        .insert(OnGameScreen)
+        .insert(BarnacleSpawnTimer(Timer::from_seconds(1.0, true)));
 }
 
 fn keyboard_input_system(
@@ -131,22 +133,27 @@ fn spawn_barnacle_on_whale(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    query: Query<&BarnacleSpawnTimer>,
 ) {
-    let mut rng = rand::thread_rng();
-    let x = rng.gen_range(0.0..1.0);
-    let y = rng.gen_range(0.0..1.0);
-    let z = rng.gen_range(0.0..1.0);
-    let barnacle_mesh_handle = asset_server.load("models/barnacle.obj");
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: barnacle_mesh_handle,
-            material: materials.add(Color::rgb(0.25, 0.25, 0.1).into()),
-            transform: Transform::from_xyz(x, y, z).with_scale(Vec3::new(0.1, 0.1, 0.1)),
-            ..Default::default()
-        })
-        .insert(OnGameScreen)
-        .insert(Barnacle::new())
-        .insert_bundle(PickableBundle::default());
+    for spawn_timer in query.iter() {
+        if spawn_timer.0.just_finished() {
+            let mut rng = rand::thread_rng();
+            let x = rng.gen_range(0.0..1.0);
+            let y = rng.gen_range(0.0..1.0);
+            let z = rng.gen_range(0.0..1.0);
+            let barnacle_mesh_handle = asset_server.load("models/barnacle.obj");
+            commands
+                .spawn_bundle(PbrBundle {
+                    mesh: barnacle_mesh_handle,
+                    material: materials.add(Color::rgb(0.25, 0.25, 0.1).into()),
+                    transform: Transform::from_xyz(x, y, z).with_scale(Vec3::new(0.1, 0.1, 0.1)),
+                    ..Default::default()
+                })
+                .insert(OnGameScreen)
+                .insert(Barnacle::new())
+                .insert_bundle(PickableBundle::default());
+        }
+    };
 }
 
 pub fn print_events(mut events: EventReader<PickingEvent>) {
@@ -156,6 +163,12 @@ pub fn print_events(mut events: EventReader<PickingEvent>) {
             PickingEvent::Hover(e) => info!("Egads! A hover event!? {:?}", e),
             PickingEvent::Clicked(e) => info!("Gee Willikers, it's a click! {:?}", e),
         }
+    }
+}
+
+fn update_timer(time: Res<Time>, mut query: Query<&mut BarnacleSpawnTimer>) {
+    for mut timer in query.iter_mut() {
+        timer.0.tick(time.delta());
     }
 }
 

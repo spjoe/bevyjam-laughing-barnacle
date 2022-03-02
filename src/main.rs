@@ -18,7 +18,7 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(ObjPlugin)
-        .add_state(GameState::Menu)
+        .add_state(GameState::Game)
         .add_plugin(menu::MenuPlugin)
         .add_plugin(game::GamePlugin)
         .run();
