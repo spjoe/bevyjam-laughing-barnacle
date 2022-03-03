@@ -48,13 +48,13 @@ impl Plugin for GamePlugin {
                     .with_system(keyboard_input_system)
                     .with_system(camera::pan_orbit_camera)
                     .with_system(barnacle_count)
-                    .with_system(print_events) //.with_system(hit_barnacle_system),
-                    .with_system(update_spawn_timer) //.with_system(hit_barnacle_system),
-                    .with_system(update_attached_timers) //.with_system(hit_barnacle_system),
-                    .with_system(update_attaching_timers) //.with_system(hit_barnacle_system),
-                    .with_system(spawn_barnacle_on_whale) //.with_system(hit_barnacle_system),
-                    .with_system(update_attached_state) //.with_system(hit_barnacle_system),
-                    .with_system(material_attaching_state), //.with_system(hit_barnacle_system),
+                    .with_system(print_events)
+                    .with_system(update_spawn_timer)
+                    .with_system(update_attached_timers)
+                    .with_system(update_attaching_timers)
+                    .with_system(spawn_barnacle_on_whale)
+                    .with_system(update_attached_state)
+                    .with_system(material_attaching_state),
             )
             .add_system_set(
                 SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<OnGameScreen>),
@@ -161,6 +161,7 @@ fn spawn_barnacle_on_whale(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
     query: Query<&BarnacleSpawnTimer>,
 ) {
     for spawn_timer in query.iter() {
@@ -169,6 +170,10 @@ fn spawn_barnacle_on_whale(
             let x = rng.gen_range(0.0..1.0);
             let y = rng.gen_range(0.0..1.0);
             let z = rng.gen_range(0.0..1.0);
+            let whale_mesh_handle: Handle<Mesh> = asset_server.load("models/whale.obj");
+            let mesh = meshes.get(whale_mesh_handle).unwrap();
+            let aabb = mesh.compute_aabb().unwrap();
+
             let barnacle_mesh_handle = asset_server.load("models/barnacle.obj");
             commands
                 .spawn_bundle(PbrBundle {
@@ -247,4 +252,56 @@ fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands
     for entity in to_despawn.iter() {
         commands.entity(entity).despawn_recursive();
     }
+}
+
+fn get_random_point_on_mesh(mesh: &Mesh) -> Vec3 {
+    let mut rng = rand::thread_rng();
+
+    let sizes = get_tri_sizes(mesh.indices().unwrap(), mesh.get());
+    let mut cumulative_sizes: Vec<f32> = vec![];
+    let mut total: f32 = 0.0;
+
+    for i in 0..sizes.len() {
+        total += sizes[i];
+        cumulative_sizes[i] = total;
+    }
+
+    let random_sample = rng.gen_range(0.0..total);
+
+    let mut tri_index: usize = 0;
+
+    for i in 0..sizes.len() {
+        if (random_sample <= cumulative_sizes[i]) {
+            tri_index = i;
+            break;
+        }
+    }
+
+    let a: Vec3 = mesh.vertices[mesh.triangles[triIndex * 3]];
+    let b: Vec3 = mesh.vertices[mesh.triangles[triIndex * 3 + 1]];
+    let c: Vec3 = mesh.vertices[mesh.triangles[triIndex * 3 + 2]];
+
+    let mut r = rng.gen_range(0.0..1.0);
+    let mut s = rng.gen_range(0.0..1.0);
+
+    if r + s >= 1.0 {
+        r = 1.0 - r;
+        s = 1.0 - s;
+    }
+    //and then turn them back to a Vector3
+    let point_on_mesh = a + r * (b - a) + s * (c - a);
+    return point_on_mesh;
+}
+
+fn get_tri_sizes(tris: Vec<usize>, verts: Vec<Vec3>) -> Vec<f32> {
+    let tri_count = tris.len() / 3;
+    let mut sizes: Vec<f32> = vec![];
+    for i in 0..tri_count {
+        sizes[i] = 0.5
+            * (verts[tris[i * 3 + 1]] - verts[tris[i * 3]])
+                .cross(verts[tris[i * 3 + 2]] - verts[tris[i * 3]])
+                .length();
+    }
+
+    return sizes;
 }
